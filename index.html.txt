@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Mobile Sales Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="bg-gray-950 text-white select-none">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [devices, setDevices] = useState(() => {
+        const saved = localStorage.getItem('mobiles_data');
+        return saved ? JSON.parse(saved) : [
+          { id: '1', model: 'iPhone 13 128GB', cost: 35000, salePrice: 42000, shop: 'Shop A', status: 'sold', date: '2026-10-20' },
+          { id: '2', model: 'Samsung S23 256GB', cost: 48000, salePrice: null, shop: 'Shop B', status: 'in-stock', date: '2026-10-24' }
+        ];
+      });
+
+      const [shops, setShops] = useState(() => {
+        const saved = localStorage.getItem('shops_data');
+        return saved ? JSON.parse(saved) : ['Shop A', 'Shop B', 'Central Hub'];
+      });
+
+      const [tab, setTab] = useState('inventory');
+      const [model, setModel] = useState('');
+      const [cost, setCost] = useState('');
+      const [selectedShop, setSelectedShop] = useState(shops[0] || 'Shop A');
+      const [newShopName, setNewShopName] = useState('');
+
+      useEffect(() => {
+        localStorage.setItem('mobiles_data', JSON.stringify(devices));
+      }, [devices]);
+
+      useEffect(() => {
+        localStorage.setItem('shops_data', JSON.stringify(shops));
+      }, [shops]);
+
+      const addDevice = (e) => {
+        e.preventDefault();
+        if (!model || !cost) return;
+        const newEntry = {
+          id: Date.now().toString(),
+          model,
+          cost: Number(cost),
+          salePrice: null,
+          shop: selectedShop,
+          status: 'in-stock',
+          date: new Date().toISOString().split('T')[0]
+        };
+        setDevices([newEntry, ...devices]);
+        setModel('');
+        setCost('');
+      };
+
+      const markAsSold = (id) => {
+        const price = prompt('Enter final selling price:');
+        if (!price || isNaN(price)) return;
+        setDevices(devices.map(d => d.id === id ? { ...d, salePrice: Number(price), status: 'sold' } : d));
+      };
+
+      const moveLocation = (id) => {
+        const destination = prompt(`Move device to which shop?\nAvailable: ${shops.join(', ')}`);
+        if (destination && destination.trim()) {
+          setDevices(devices.map(d => d.id === id ? { ...d, shop: destination.trim() } : d));
+        }
+      };
+
+      const shareWhatsApp = (item) => {
+        const text = `📱 *Device Details:*\n*Model:* ${item.model}\n*Current Location:* ${item.shop}\n*Status:* ${item.status.toUpperCase()}`;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+      };
+
+      const addShop = (e) => {
+        e.preventDefault();
+        if (!newShopName.trim()) return;
+        if (!shops.includes(newShopName.trim())) {
+          setShops([...shops, newShopName.trim()]);
+        }
+        setNewShopName('');
+      };
+
+      const totalProfit = devices
+        .filter(d => d.status === 'sold' && d.salePrice)
+        .reduce((sum, d) => sum + (d.salePrice - d.cost), 0);
+
+      const inStockValue = devices
+        .filter(d => d.status === 'in-stock')
+        .reduce((sum, d) => sum + d.cost, 0);
+
+      return (
+        <div class="max-w-md mx-auto min-h-screen pb-20 flex flex-col font-sans">
+          {/* Header */}
+          <div class="p-4 bg-gray-900 border-b border-gray-800 sticky top-0 z-10 flex justify-between items-center">
+            <h1 class="text-lg font-bold text-blue-400">📱 Mobile Sales Tracker</h1>
+            <span class="text-xs bg-gray-800 text-gray-300 px-2.5 py-1 rounded-full border border-gray-700">Live</span>
+          </div>
+
+          {/* Quick Metrics */}
+          <div class="grid grid-cols-2 gap-3 p-4">
+            <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
+              <div class="text-xs text-gray-400">Total Profit</div>
+              <div class="text-lg font-bold text-emerald-400">₹{totalProfit.toLocaleString()}</div>
+            </div>
+            <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
+              <div class="text-xs text-gray-400">Stock Value</div>
+              <div class="text-lg font-bold text-blue-400">₹{inStockValue.toLocaleString()}</div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div class="flex border-b border-gray-800 px-4">
+            <button 
+              onClick={() => setTab('inventory')} 
+              class={`flex-1 py-2 text-sm font-medium border-b-2 ${tab === 'inventory' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400'}`}>
+              Inventory ({devices.filter(d => d.status === 'in-stock').length})
+            </button>
+            <button 
+              onClick={() => setTab('sold')} 
+              class={`flex-1 py-2 text-sm font-medium border-b-2 ${tab === 'sold' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400'}`}>
+              Sold History
+            </button>
+            <button 
+              onClick={() => setTab('shops')} 
+              class={`flex-1 py-2 text-sm font-medium border-b-2 ${tab === 'shops' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400'}`}>
+              Shops
+            </button>
+          </div>
+
+          {/* Content Area */}
+          <div class="p-4 flex-1">
+            {tab === 'inventory' && (
+              <div>
+                {/* Add Device Form */}
+                <form onSubmit={addDevice} class="bg-gray-900 p-3.5 rounded-xl border border-gray-800 space-y-3 mb-4">
+                  <div class="text-sm font-semibold text-gray-200">Add New Mobile</div>
+                  <input 
+                    type="text" 
+                    placeholder="Mobile Model (e.g. iPhone 14 Pro)" 
+                    value={model} 
+                    onChange={e => setModel(e.target.value)} 
+                    class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500" 
+                    required 
+                  />
+                  <div class="flex gap-2">
+                    <input 
+                      type="number" 
+                      placeholder="Cost Price (₹)" 
+                      value={cost} 
+                      onChange={e => setCost(e.target.value)} 
+                      class="w-1/2 bg-gray-950 border border-gray-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500" 
+                      required 
+                    />
+                    <select 
+                      value={selectedShop} 
+                      onChange={e => setSelectedShop(e.target.value)} 
+                      class="w-1/2 bg-gray-950 border border-gray-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                      {shops.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm">
+                    + Add to Stock
+                  </button>
+                </form>
+
+                {/* Device List */}
+                <div class="space-y-3">
+                  {devices.filter(d => d.status === 'in-stock').map(d => (
+                    <div key={d.id} class="bg-gray-900 p-3.5 rounded-xl border border-gray-800 flex flex-col gap-2">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <div class="font-semibold text-sm text-white">{d.model}</div>
+                          <div class="text-xs text-gray-400">Cost: ₹{d.cost.toLocaleString()} • Added: {d.date}</div>
+                        </div>
+                        <span class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-medium">
+                          {d.shop}
+                        </span>
+                      </div>
+                      <div class="grid grid-cols-3 gap-2 pt-2 border-t border-gray-800 text-xs font-medium">
+                        <button onClick={() => moveLocation(d.id)} class="bg-gray-800 py-1.5 rounded-lg text-gray-300 hover:bg-gray-700 text-center">
+                          Move Shop
+                        </button>
+                        <button onClick={() => shareWhatsApp(d)} class="bg-emerald-950 text-emerald-400 border border-emerald-800 py-1.5 rounded-lg text-center">
+                          WhatsApp
+                        </button>
+                        <button onClick={() => markAsSold(d.id)} class="bg-blue-600 text-white py-1.5 rounded-lg text-center">
+                          Mark Sold
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {devices.filter(d => d.status === 'in-stock').length === 0 && (
+                    <div class="text-center text-xs text-gray-500 py-8">No phones currently in stock.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {tab === 'sold' && (
+              <div class="space-y-3">
+                {devices.filter(d => d.status === 'sold').map(d => {
+                  const profit = (d.salePrice || 0) - d.cost;
+                  return (
+                    <div key={d.id} class="bg-gray-900 p-3.5 rounded-xl border border-gray-800 flex justify-between items-center">
+                      <div>
+                        <div class="font-semibold text-sm text-white">{d.model}</div>
+                        <div class="text-xs text-gray-400">Sold from: {d.shop}</div>
+                        <div class="text-xs text-gray-500">Cost: ₹{d.cost.toLocaleString()} | Sold: ₹{(d.salePrice || 0).toLocaleString()}</div>
+                      </div>
+                      <div class="text-right">
+                        <div class={`text-sm font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {profit >= 0 ? '+' : ''}₹{profit.toLocaleString()}
+                        </div>
+                        <span class="text-[10px] text-gray-500 uppercase">Profit</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {tab === 'shops' && (
+              <div>
+                <form onSubmit={addShop} class="flex gap-2 mb-4">
+                  <input 
+                    type="text" 
+                    placeholder="New shop name..." 
+                    value={newShopName} 
+                    onChange={e => setNewShopName(e.target.value)} 
+                    class="flex-1 bg-gray-900 border border-gray-800 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500" 
+                  />
+                  <button type="submit" class="bg-blue-600 text-white text-sm px-4 rounded-lg font-medium">Add</button>
+                </form>
+
+                <div class="space-y-2">
+                  {shops.map((shop, i) => {
+                    const count = devices.filter(d => d.shop === shop && d.status === 'in-stock').length;
+                    return (
+                      <div key={i} class="bg-gray-900 p-3 rounded-lg border border-gray-800 flex justify-between items-center text-sm">
+                        <span>{shop}</span>
+                        <span class="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">{count} phones</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
